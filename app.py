@@ -8,16 +8,27 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-.block-container {
-    padding-top: 2rem;
+/* overall page padding */
+.block-container { padding-top: 1.6rem; padding-bottom: 2.5rem; }
+
+/* reduce “Streamlit-y” spacing */
+div[data-testid="stVerticalBlock"] { gap: 0.75rem; }
+
+/* soften widgets */
+.stTextInput > div > div, .stTextArea > div > div, .stMultiSelect > div > div,
+.stSelectbox > div > div, .stNumberInput > div > div {
+  border-radius: 10px;
 }
-h1, h2, h3 {
-    letter-spacing: 0.5px;
-}
+
+/* buttons: minimal, pill-ish */
 .stButton>button {
-    border-radius: 8px;
-    font-weight: 600;
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  font-weight: 600;
 }
+
+/* headings: calmer */
+h1, h2, h3 { letter-spacing: 0.2px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -980,5 +991,6 @@ if pdf_btn:
             file_name=f"Trip_Cookbook_A5_{int(days)}d_{int(meals_per_day)}mpd_{mode}_seed{int(seed)}.pdf",
             mime="application/pdf",
         )
+
 
 
