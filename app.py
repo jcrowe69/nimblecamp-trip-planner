@@ -1,3 +1,29 @@
+import streamlit as st
+
+st.set_page_config(
+    page_title="Nimble Camp Meal Planner",
+    page_icon="🔥",
+    layout="wide"
+)
+
+st.markdown("""
+<style>
+.block-container {
+    padding-top: 2rem;
+}
+h1, h2, h3 {
+    letter-spacing: 0.5px;
+}
+.stButton>button {
+    border-radius: 8px;
+    font-weight: 600;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("Nimble Camp Meal Planner")
+st.caption("Plan your camp meals around real gear.")
+
 import io
 import json
 import os
@@ -954,4 +980,5 @@ if pdf_btn:
             file_name=f"Trip_Cookbook_A5_{int(days)}d_{int(meals_per_day)}mpd_{mode}_seed{int(seed)}.pdf",
             mime="application/pdf",
         )
+
 
