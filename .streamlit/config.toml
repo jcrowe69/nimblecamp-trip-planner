@@ -1,6 +1,6 @@
 [theme]
-primaryColor="#1F3A2E"          # deep forest green
-backgroundColor="#F6F4EF"       # warm off-white
-secondaryBackgroundColor="#E8E5DD"
-textColor="#1C1C1C"
+primaryColor="#2F3B35"              # muted charcoal-green
+backgroundColor="#F7F5F0"           # warm paper
+secondaryBackgroundColor="#EEEAE1"  # light sand
+textColor="#1A1A1A"
 font="sans serif"
