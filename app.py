@@ -17,71 +17,93 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 
-# ============================================================
-# Page config + Minimal Japanese aesthetic
-# ============================================================
+# =========================================================
+# Page config (ONLY ONCE)
+# =========================================================
 st.set_page_config(
     page_title="Nimble Camp Trip Planner",
     page_icon="🔥",
     layout="wide",
 )
 
+# =========================================================
+# Minimal Japanese aesthetic CSS + remove header anchor icons
+# =========================================================
 st.markdown(
     """
 <style>
-/* overall page padding */
-.block-container { padding-top: 1.6rem; padding-bottom: 2.5rem; }
+/* --- overall --- */
+html, body, [class*="css"]  {
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+}
+.block-container { padding-top: 1.2rem; padding-bottom: 2.0rem; max-width: 1200px; }
 
-/* reduce Streamlit vertical gaps */
-div[data-testid="stVerticalBlock"] { gap: 0.75rem; }
+/* remove Streamlit header anchor icons (chain/link) */
+h1 a, h2 a, h3 a, h4 a, h5 a, h6 a { display: none !important; }
 
 /* soften widgets */
 .stTextInput > div > div, .stTextArea > div > div, .stMultiSelect > div > div,
 .stSelectbox > div > div, .stNumberInput > div > div {
-  border-radius: 10px;
+  border-radius: 12px;
 }
 
-/* buttons: minimal pill */
+/* buttons */
 .stButton>button {
   border-radius: 999px;
   padding: 0.55rem 1rem;
-  font-weight: 600;
+  font-weight: 650;
 }
 
-/* headings: calmer */
-h1, h2, h3 { letter-spacing: 0.2px; }
+/* subtle separators */
+.hr-soft {
+  height: 1px;
+  background: rgba(0,0,0,0.08);
+  margin: 1rem 0;
+}
 
-/* soften dataframe edges */
-div[data-testid="stDataFrame"], div[data-testid="stDataEditor"] { border-radius: 12px; overflow: hidden; }
-
-/* tighten caption spacing */
-[data-testid="stCaptionContainer"] { margin-top: -0.25rem; }
+/* Card styles */
+.nc-card {
+  border: 1px solid rgba(0,0,0,0.10);
+  border-radius: 16px;
+  padding: 14px 14px 10px 14px;
+  background: rgba(255,255,255,0.75);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.05);
+  margin-bottom: 12px;
+}
+.nc-card h4 {
+  margin: 0 0 6px 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.2px;
+}
+.nc-pill {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: rgba(0,0,0,0.02);
+  margin-right: 6px;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+}
+.nc-muted { color: rgba(0,0,0,0.62); }
+.nc-small { font-size: 0.90rem; }
 </style>
 """,
     unsafe_allow_html=True,
 )
 
-st.markdown("### Nimble Camp")
+# =========================================================
+# Brand header (no extra headings / no old title)
+# =========================================================
+st.markdown("## Nimble Camp")
 st.markdown("# Trip Planner")
 st.caption("Build a personalised Japanese-style camp cookbook based on the tools you pack.")
-st.divider()
 
-# ============================================================
-# Nimble Camp product links (update these to real URLs anytime)
-# ============================================================
-PRODUCT_LINKS = {
-    "Messtin": "https://nimblecamp.com",
-    "Frying pan": "https://nimblecamp.com",
-    "Skillet": "https://nimblecamp.com",
-    "Sierra Cup": "https://nimblecamp.com",
-    "Hot sandwich maker": "https://nimblecamp.com",
-    "Smoker": "https://nimblecamp.com",
-    "Dutch oven": "https://nimblecamp.com",
-}
+st.markdown('<div class="hr-soft"></div>', unsafe_allow_html=True)
 
-# ============================================================
+# =========================================================
 # Defaults
-# ============================================================
+# =========================================================
 DEFAULT_DAYS = 5
 DEFAULT_MEAL_TAGS = ["Breakfast", "Lunch", "Dinner"]
 
@@ -98,7 +120,7 @@ MASTER_JSON_DEFAULT = "sotorecipe_verbatim_JP_EN_ALL_V4.json"
 IMG_CACHE_DIR = "img_cache"
 os.makedirs(IMG_CACHE_DIR, exist_ok=True)
 
-HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; NimbleCampTripApp/1.0)"}
+HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; SOTOTripApp/2.0)"}
 TIMEOUT = 25
 
 FONT = "Helvetica"
@@ -143,9 +165,9 @@ JP_TOOL_MAP = {
     "スモーカー": "Smoker",
 }
 
-# ============================================================
-# Helpers
-# ============================================================
+# =========================================================
+# Basic helpers
+# =========================================================
 def clean(x: Any) -> str:
     if x is None:
         return ""
@@ -166,6 +188,18 @@ def safe_list(x: Any) -> List[str]:
 def norm(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").strip()).lower()
 
+def merge_unique(existing: List[str], new_items: List[str]) -> List[str]:
+    seen = set(existing)
+    out = list(existing)
+    for x in new_items:
+        if x and x not in seen:
+            out.append(x)
+            seen.add(x)
+    return out
+
+# =========================================================
+# Search upgrades
+# =========================================================
 def normalize_for_search(s: str) -> str:
     s = (s or "").lower()
     s = re.sub(r"[’'`]", "", s)
@@ -189,12 +223,6 @@ def tokenize(s: str) -> List[str]:
             final.append(t)
     return final
 
-def did_you_mean(query: str, candidates: List[str], n: int = 8) -> List[str]:
-    q = normalize_for_search(query)
-    if not q:
-        return []
-    return difflib.get_close_matches(q, candidates, n=n, cutoff=0.55)
-
 def build_search_blob(r: Dict[str, Any]) -> str:
     parts = [
         clean(r.get("title_en")),
@@ -205,12 +233,19 @@ def build_search_blob(r: Dict[str, Any]) -> str:
         " ".join(safe_list(r.get("kitchenwares_jp"))),
         clean(r.get("tool")),
         clean(r.get("main_ing")),
+        clean(r.get("meal")),
     ]
     return normalize_for_search(" ".join([p for p in parts if p]))
 
-# ============================================================
+def did_you_mean(query: str, candidates: List[str], n: int = 8) -> List[str]:
+    q = normalize_for_search(query)
+    if not q:
+        return []
+    return difflib.get_close_matches(q, candidates, n=n, cutoff=0.55)
+
+# =========================================================
 # Classification
-# ============================================================
+# =========================================================
 def classify_meal(r: Dict[str, Any]) -> str:
     m = clean(r.get("meal"))
     if m in MEAL_BUCKETS:
@@ -266,14 +301,16 @@ def classify_main(r: Dict[str, Any]) -> str:
     if any(x in blob for x in ["beef", "pork", "lamb", "bacon", "sausage", "venison", "meat"]):
         return "Meat"
     veg_hit = any(x in blob for x in ["tofu", "mushroom", "eggplant", "vegetable", "veggie"])
-    animal_hit = any(x in blob for x in ["beef", "pork", "chicken", "fish", "salmon", "tuna", "shrimp", "bacon", "sausage", "meat"])
+    animal_hit = any(
+        x in blob for x in ["beef", "pork", "chicken", "fish", "salmon", "tuna", "shrimp", "bacon", "sausage", "meat"]
+    )
     if veg_hit and not animal_hit:
         return "Vegetarian"
     return "Other"
 
-# ============================================================
+# =========================================================
 # Shopping list helpers
-# ============================================================
+# =========================================================
 def ingredient_key(line: str) -> str:
     s = norm(line)
     s = re.sub(r"\([^)]*\)", "", s)
@@ -294,32 +331,45 @@ def bucket_shopping_list(recipes: List[Dict[str, Any]]) -> List[Tuple[str, List[
             continue
         agg.setdefault(k, []).append(line)
 
-    merged = [max(lines, key=len) for lines in agg.values()]
+    merged = []
+    for _k, lines in agg.items():
+        merged.append(max(lines, key=len))
 
     buckets = {"Proteins": [], "Vegetables & Herbs": [], "Sauces, Oils & Spices": [], "Staples": [], "Other": []}
     for line in merged:
         s = norm(line)
         if any(x in s for x in ["chicken", "beef", "pork", "fish", "tuna", "salmon", "egg", "bacon", "sausage", "tofu", "venison", "lamb"]):
             buckets["Proteins"].append(line)
-        elif any(x in s for x in ["onion","garlic","ginger","tomato","mushroom","pepper","carrot","cabbage","lettuce","spinach","spring onion","scallion","chive","herb","lemon","lime"]):
+        elif any(
+            x in s
+            for x in [
+                "onion","garlic","ginger","tomato","mushroom","pepper","carrot","cabbage","lettuce","spinach",
+                "spring onion","scallion","chive","herb","lemon","lime",
+            ]
+        ):
             buckets["Vegetables & Herbs"].append(line)
-        elif any(x in s for x in ["soy","miso","sauce","oil","vinegar","salt","pepper","spice","seasoning","sesame","chili","sugar","mirin","sake","ketchup","mayo"]):
+        elif any(
+            x in s
+            for x in [
+                "soy","miso","sauce","oil","vinegar","salt","pepper","spice","seasoning","sesame","chili","sugar","mirin","sake","ketchup","mayo",
+            ]
+        ):
             buckets["Sauces, Oils & Spices"].append(line)
-        elif any(x in s for x in ["rice","noodle","bread","tortilla","pasta","flour","starch"]):
+        elif any(x in s for x in ["rice", "noodle", "bread", "tortilla", "pasta", "flour", "starch"]):
             buckets["Staples"].append(line)
         else:
             buckets["Other"].append(line)
 
-    out: List[Tuple[str, List[str]]] = []
+    out = []
     for b in ["Proteins", "Vegetables & Herbs", "Sauces, Oils & Spices", "Staples", "Other"]:
         lines = sorted(buckets[b], key=lambda x: norm(x))
         if lines:
             out.append((b, lines))
     return out
 
-# ============================================================
+# =========================================================
 # PDF helpers
-# ============================================================
+# =========================================================
 def cache_path_for_url(url: str) -> str:
     name = re.sub(r"[^a-zA-Z0-9]+", "_", url)[-90:]
     return os.path.join(IMG_CACHE_DIR, f"{name}.jpg")
@@ -374,9 +424,8 @@ def draw_lines(c: canvas.Canvas, x: float, y: float, lines: List[str], font: str
     return y
 
 def draw_footer(c: canvas.Canvas, page_num: int):
-    c.setFont(FONT, 7.5)
-    c.drawCentredString(PAGE_W / 2, MARGIN / 2 + 3, "nimblecamp.com")
-    c.drawCentredString(PAGE_W / 2, MARGIN / 2 - 6, str(page_num))
+    c.setFont(FONT, SMALL_SIZE)
+    c.drawCentredString(PAGE_W / 2, MARGIN / 2, str(page_num))
 
 def build_a5_pdf(menu_full: List[Dict[str, Any]], title: str, subtitle: str) -> bytes:
     buf = io.BytesIO()
@@ -384,15 +433,13 @@ def build_a5_pdf(menu_full: List[Dict[str, Any]], title: str, subtitle: str) -> 
     page_num = 1
 
     # Cover
-    c.setFont(FONT_B, 24)
-    c.drawCentredString(PAGE_W / 2, PAGE_H * 0.73, "Nimble Camp")
-    c.setFont(FONT_B, 18)
-    c.drawCentredString(PAGE_W / 2, PAGE_H * 0.66, title)
+    c.setFont(FONT_B, 22)
+    c.drawCentredString(PAGE_W / 2, PAGE_H * 0.70, title)
+    c.setFont(FONT, 11)
     if subtitle:
-        c.setFont(FONT, 11)
-        c.drawCentredString(PAGE_W / 2, PAGE_H * 0.61, subtitle)
+        c.drawCentredString(PAGE_W / 2, PAGE_H * 0.64, subtitle)
     c.setFont(FONT, 9)
-    c.drawCentredString(PAGE_W / 2, PAGE_H * 0.55, time.strftime("%Y-%m-%d"))
+    c.drawCentredString(PAGE_W / 2, PAGE_H * 0.58, time.strftime("%Y-%m-%d"))
     c.showPage()
     page_num += 1
 
@@ -430,7 +477,6 @@ def build_a5_pdf(menu_full: List[Dict[str, Any]], title: str, subtitle: str) -> 
         day = int(r.get("day", 0))
         meal = clean(r.get("meal"))
         title_r = clean(r.get("title_en")) or clean(r.get("title_jp")) or "Untitled"
-        url = clean(r.get("url"))
         tool = clean(r.get("tool")) or classify_tool(r)
         main_ing = clean(r.get("main_ing")) or classify_main(r)
 
@@ -447,7 +493,7 @@ def build_a5_pdf(menu_full: List[Dict[str, Any]], title: str, subtitle: str) -> 
             TITLE_SIZE * 1.15,
         ) - GAP
 
-        meta = " • ".join([x for x in [tool, main_ing, url] if x])
+        meta = " • ".join([x for x in [tool, main_ing] if x])  # NO URL in PDF header
         c.setFont(FONT, 8.5)
         y = draw_lines(c, MARGIN, y, wrap(meta, FONT, 8.5, PAGE_W - 2 * MARGIN), FONT, 8.5, 10) - GAP
 
@@ -506,9 +552,9 @@ def build_a5_pdf(menu_full: List[Dict[str, Any]], title: str, subtitle: str) -> 
     buf.seek(0)
     return buf.read()
 
-# ============================================================
+# =========================================================
 # Data load / pool ops
-# ============================================================
+# =========================================================
 @st.cache_data(show_spinner=False)
 def load_master(path: str) -> List[Dict[str, Any]]:
     d = json.load(open(path, "r", encoding="utf-8"))
@@ -517,6 +563,8 @@ def load_master(path: str) -> List[Dict[str, Any]]:
         r["meal"] = classify_meal(r)
         r["tool"] = classify_tool(r)
         r["main_ing"] = classify_main(r)
+        r["_search_blob"] = build_search_blob(r)
+        r["_title_norm"] = normalize_for_search(r.get("title_en") or r.get("title_jp") or "")
     return pool
 
 def filter_pool(pool: List[Dict[str, Any]], meal_tags: List[str], tools: List[str], prefer: List[str], avoid: List[str]) -> List[Dict[str, Any]]:
@@ -535,10 +583,6 @@ def filter_pool(pool: List[Dict[str, Any]], meal_tags: List[str], tools: List[st
     return out
 
 def build_daily_slots(days: int, meal_tags: List[str], meals_per_day: int, schedule_mode: str, fixed_slots: List[str]) -> List[Tuple[int, str]]:
-    """
-    IMPORTANT: total slots = days * meals_per_day always.
-    meal_tags only influences which meal labels appear in those slots (not how many).
-    """
     slots: List[Tuple[int, str]] = []
     meal_tags = [m for m in (meal_tags or []) if m in MEAL_BUCKETS]
     if not meal_tags:
@@ -576,7 +620,7 @@ def propose_menu(
     mode: str,
 ) -> List[Dict[str, Any]]:
     need = int(days) * int(meals_per_day)
-    random.seed(int(seed))
+    random.seed(seed)
 
     by_url = {r["url"]: r for r in pool_filtered if r.get("url")}
     locked_urls = [u for u in (locked_urls or []) if u in by_url]
@@ -618,10 +662,13 @@ def propose_menu(
         schedule_mode=schedule_mode,
         fixed_slots=fixed_meal_slots,
     )
+    daily_slots = daily_slots[:need]
 
     ordered: List[Dict[str, Any]] = []
-    for i, (d, m) in enumerate(daily_slots):
-        r = picked[i]
+    idx = 0
+    for d, m in daily_slots:
+        r = picked[idx]
+        idx += 1
         ordered.append({
             "day": d,
             "meal": m,
@@ -636,41 +683,21 @@ def propose_menu(
         })
     return ordered
 
-def hydrate_from_pool(url: str, fallback: Dict[str, Any], pool_by_url: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
-    base = pool_by_url.get(url)
-    out = dict(fallback)
-    out["url"] = url
-
-    if not base:
-        out["ingredients_en"] = out.get("ingredients_en", []) or []
-        out["method_en"] = out.get("method_en", []) or []
-        return out
-
-    out["title_en"] = base.get("title_en", "") or base.get("title_jp", "")
-    out["title_jp"] = base.get("title_jp", "")
-    out["tool"] = base.get("tool", "") or classify_tool(base)
-    out["main_ing"] = base.get("main_ing", "") or classify_main(base)
-    out["image_url"] = base.get("image_url", "")
-    out["ingredients_en"] = base.get("ingredients_en", []) or []
-    out["method_en"] = base.get("method_en", []) or []
-    return out
-
-# ============================================================
-# Sidebar (Plan)
-# ============================================================
+# =========================================================
+# Sidebar controls
+# =========================================================
 with st.sidebar:
-    st.header("Master DB")
+    st.subheader("Master DB")
     master_path = st.text_input("Master JSON path", MASTER_JSON_DEFAULT)
     load_btn = st.button("Load / Reload DB")
-    clear_cache_btn = st.button("Clear cache (if DB updated)")
+    clear_cache_btn = st.button("Clear cache")
 
-    st.divider()
-    st.header("Trip Settings")
-
+    st.markdown("---")
+    st.subheader("Trip settings")
     days = st.number_input("Days", min_value=1, max_value=30, value=DEFAULT_DAYS, step=1)
-    meal_tags = st.multiselect("Meal tags to pull from (filter)", MEAL_BUCKETS, default=DEFAULT_MEAL_TAGS)
 
-    meals_per_day = st.number_input("Meals per day to generate", min_value=1, max_value=3, value=DEFAULT_MEALS_PER_DAY, step=1)
+    meal_tags = st.multiselect("Meal tags to pull from", MEAL_BUCKETS, default=DEFAULT_MEAL_TAGS)
+    meals_per_day = st.number_input("Meals per day", min_value=1, max_value=3, value=DEFAULT_MEALS_PER_DAY, step=1)
 
     schedule_mode = st.selectbox(
         "Meal schedule",
@@ -688,38 +715,34 @@ with st.sidebar:
     fixed_meal_slots = default_fixed
     if schedule_mode.startswith("Fixed"):
         fixed_meal_slots = st.multiselect(
-            "Meals to use each day (must match Meals per day)",
+            "Meals used each day",
             MEAL_BUCKETS,
             default=default_fixed,
         )
         if len(fixed_meal_slots) != int(meals_per_day):
-            st.warning("Fixed schedule: pick exactly the same number of meals as 'Meals per day'.")
+            st.warning("Fixed schedule: pick exactly the same number of meals as Meals/day.")
 
     tools = st.multiselect("Tools you have", TOOL_BUCKETS, default=ALL_TOOLS_EXCEPT_DUTCH)
-    tools = [t for t in tools if t != "Dutch oven"]
+    tools = [t for t in tools if t != "Dutch oven"]  # you normally don't bring it
 
     prefer = st.multiselect("Prefer main ingredient", MAIN_BUCKETS, default=DEFAULT_PREFER)
     avoid = st.multiselect("Avoid main ingredient", MAIN_BUCKETS, default=DEFAULT_AVOID)
 
     mode = st.selectbox("Random mode", ["weighted", "random"], index=0)
-    seed = st.number_input("Random seed (same seed = same menu)", min_value=1, max_value=999999, value=42, step=1)
+    seed = st.number_input("Random seed", min_value=1, max_value=999999, value=42, step=1)
 
-    st.divider()
-    st.header("PDF Output")
+    st.markdown("---")
+    st.subheader("PDF")
     pdf_title = st.text_input("PDF Title", value=f"{int(days)}-Day Camp Cookbook")
-    pdf_subtitle = st.text_input(
-        "PDF Subtitle",
-        value=f"Meals/day: {int(meals_per_day)} | Tags: {', '.join(meal_tags) if meal_tags else 'Any'} | Tools: {', '.join(tools) if tools else 'Any'} | Mode: {mode} | Seed: {seed}",
-    )
+    pdf_subtitle = st.text_input("PDF Subtitle (optional)", value="")
 
-    st.divider()
-    st.header("Actions")
-    generate_btn = st.button("Generate / Refresh Proposed Menu")
-    pdf_btn = st.button("Generate A5 PDF from Approved Menu")
+    st.markdown("---")
+    generate_btn = st.button("Generate / Refresh Menu")
+    pdf_btn = st.button("Generate A5 PDF")
 
-# ============================================================
+# =========================================================
 # Session init
-# ============================================================
+# =========================================================
 if "pool" not in st.session_state:
     st.session_state.pool = []
 if "menu" not in st.session_state:
@@ -729,16 +752,16 @@ if "locked_urls" not in st.session_state:
 
 if clear_cache_btn:
     st.cache_data.clear()
-    st.success("Cache cleared. Click Load / Reload DB.")
+    st.success("Cache cleared. Now reload DB.")
     st.stop()
 
-# ============================================================
+# =========================================================
 # Load DB
-# ============================================================
+# =========================================================
 if load_btn or (not st.session_state.pool):
     try:
         st.session_state.pool = load_master(master_path)
-        st.success(f"Loaded {len(st.session_state.pool)} recipes from {master_path}")
+        st.success(f"Loaded {len(st.session_state.pool)} recipes.")
     except Exception as e:
         st.error(f"Failed to load JSON: {e}")
 
@@ -752,32 +775,22 @@ POOL_BY_URL = {r.get("url"): r for r in pool if r.get("url")}
 filtered = filter_pool(pool, meal_tags=meal_tags, tools=tools, prefer=prefer, avoid=avoid)
 st.caption(f"Eligible recipes after filters: **{len(filtered)}**")
 
+# =========================================================
+# Browse & lock + Locked panel
+# =========================================================
 colA, colB = st.columns([2, 1])
 
-# ============================================================
-# Locked picks (Right)
-# ============================================================
 with colB:
     st.subheader("Locked picks")
     st.write("Lock favourites so they stay in the menu when you randomize.")
-
     locked_text = st.text_area(
         "Locked recipe URLs (one per line)",
         value="\n".join(st.session_state.locked_urls),
-        height=220,
+        height=240,
     )
     st.session_state.locked_urls = sorted(set([ln.strip() for ln in locked_text.splitlines() if ln.strip()]))
+    st.write(f"Locked URLs: **{len(st.session_state.locked_urls)}**")
 
-    st.caption(f"Locked URLs: **{len(st.session_state.locked_urls)}**")
-
-    if st.button("Clear all locks"):
-        st.session_state.locked_urls = []
-        st.success("Cleared all locked recipes.")
-        st.rerun()
-
-# ============================================================
-# Browse & lock (Left) - upgraded table + drop-in apply button
-# ============================================================
 with colA:
     st.subheader("Browse & lock recipes")
 
@@ -788,8 +801,8 @@ with colA:
         "tool": r.get("tool"),
         "main": r.get("main_ing"),
         "url": r.get("url"),
-        "_blob": build_search_blob(r),
-        "_title_norm": normalize_for_search(r.get("title_en") or r.get("title_jp") or ""),
+        "search_blob": r.get("_search_blob", ""),
+        "title_norm": r.get("_title_norm", ""),
     } for r in filtered])
 
     left_s, right_s = st.columns([2, 1])
@@ -807,11 +820,11 @@ with colA:
         if toks:
             mask = pd.Series([True] * len(browse_df))
             for t in toks:
-                mask &= browse_df["_blob"].str.contains(re.escape(t), na=False)
+                mask &= browse_df["search_blob"].str.contains(re.escape(t), na=False)
             results = browse_df[mask]
 
             if results.empty and fuzzy:
-                title_norms = browse_df["_title_norm"].fillna("").tolist()
+                title_norms = browse_df["title_norm"].fillna("").tolist()
                 suggestions = did_you_mean(q, title_norms, n=12)
                 if suggestions:
                     sug_tokens = set()
@@ -821,23 +834,23 @@ with colA:
                     if sug_tokens:
                         mask2 = pd.Series([False] * len(browse_df))
                         for t in sug_tokens:
-                            mask2 |= browse_df["_blob"].str.contains(re.escape(t), na=False)
+                            mask2 |= browse_df["search_blob"].str.contains(re.escape(t), na=False)
                         results = browse_df[mask2]
-                    st.info("No exact matches. Showing closest results. Try fewer keywords for best results.")
+                    st.info("No exact matches. Showing closest results.")
                 else:
-                    st.warning("No matches. Try fewer words, or search JP tags like キムチ / 鍋 / メスティン.")
+                    st.warning("No matches. Try fewer words, or JP tags like キムチ / 鍋 / メスティン.")
+
             browse_df = results
 
-    display_df = browse_df.drop(columns=["_blob", "_title_norm"], errors="ignore")
+    display_df = browse_df.drop(columns=["search_blob", "title_norm"])
 
-    edited = st.data_editor(
+    edited_browse = st.data_editor(
         display_df,
         use_container_width=True,
-        height=380,
+        height=360,
         num_rows="fixed",
-        hide_index=True,
         column_config={
-            "lock": st.column_config.CheckboxColumn("Lock", help="Tick to lock/unlock this recipe"),
+            "lock": st.column_config.CheckboxColumn("Lock"),
             "url": st.column_config.TextColumn("url", width="large"),
             "title": st.column_config.TextColumn("title", width="large"),
         },
@@ -845,29 +858,35 @@ with colA:
         key="browse_editor",
     )
 
-    # ---- Single “apply locks from this view” button (drop-in workflow)
-    urls_in_view = edited["url"].dropna().tolist()
-    checked_urls = edited.loc[edited["lock"] == True, "url"].dropna().tolist()
+    selected_urls = edited_browse.loc[edited_browse["lock"] == True, "url"].dropna().tolist()
+    unselected_urls = edited_browse.loc[edited_browse["lock"] == False, "url"].dropna().tolist()
 
-    c1, c2 = st.columns([1, 2])
-    with c1:
-        if st.button("Apply locks from this view"):
-            current = set(st.session_state.locked_urls or [])
-            current -= set(urls_in_view)           # remove any locks that were in this view
-            current |= set(checked_urls)           # add checked locks
-            st.session_state.locked_urls = sorted(current)
-            st.success(f"Updated locks. Total locked: {len(st.session_state.locked_urls)}")
-            st.rerun()
+    b1, b2, b3 = st.columns([1, 1, 1])
+    with b1:
+        if st.button("Lock selected"):
+            st.session_state.locked_urls = sorted(set(merge_unique(st.session_state.locked_urls, selected_urls)))
+            st.success(f"Locked {len(selected_urls)} recipes in this view.")
+    with b2:
+        if st.button("Unlock selected"):
+            cur = set(st.session_state.locked_urls or [])
+            cur_minus = cur - set(unselected_urls)
+            st.session_state.locked_urls = sorted(cur_minus)
+            st.success("Unlocked unchecked recipes from this view.")
+    with b3:
+        if st.button("Clear locks"):
+            st.session_state.locked_urls = []
+            st.success("Cleared all locked recipes.")
 
-    with c2:
-        st.caption("Tick recipes, click **Apply locks from this view**, then generate the menu.")
+    st.caption("Search, tick recipes, click **Lock selected**, then generate the menu.")
 
-# ============================================================
+st.markdown('<div class="hr-soft"></div>', unsafe_allow_html=True)
+
+# =========================================================
 # Generate menu
-# ============================================================
+# =========================================================
 if generate_btn:
     if schedule_mode.startswith("Fixed") and len(fixed_meal_slots) != int(meals_per_day):
-        st.error("Fixed schedule mismatch: set 'Meals per day' and select the same number of meals.")
+        st.error("Fixed schedule mismatch: set Meals/day and select the same number of meals.")
     else:
         try:
             st.session_state.menu = propose_menu(
@@ -882,65 +901,78 @@ if generate_btn:
                 locked_urls=st.session_state.locked_urls,
                 mode=mode,
             )
-            st.success(f"Proposed menu created: {len(st.session_state.menu)} meals")
+            st.success(f"Menu created: {len(st.session_state.menu)} meals")
         except Exception as e:
             st.error(str(e))
 
-# ============================================================
-# Proposed menu editor (rehydrate on URL changes)
-# ============================================================
+# =========================================================
+# Proposed Menu — CARD LAYOUT (NO TABLE, NO URL DISPLAY)
+# =========================================================
+def group_by_day(menu: List[Dict[str, Any]]) -> Dict[int, List[Dict[str, Any]]]:
+    days_map: Dict[int, List[Dict[str, Any]]] = {}
+    for r in menu:
+        d = int(r.get("day", 0))
+        days_map.setdefault(d, []).append(r)
+    # keep stable order within day
+    for d in days_map:
+        days_map[d] = sorted(days_map[d], key=lambda x: (MEAL_BUCKETS.index(x.get("meal")) if x.get("meal") in MEAL_BUCKETS else 99))
+    return dict(sorted(days_map.items(), key=lambda kv: kv[0]))
+
+def card_html(title: str, meal: str, tool: str, main_ing: str, jp_title: str = "") -> str:
+    pills = []
+    if meal: pills.append(f'<span class="nc-pill">{meal}</span>')
+    if tool: pills.append(f'<span class="nc-pill">{tool}</span>')
+    if main_ing: pills.append(f'<span class="nc-pill">{main_ing}</span>')
+    pills_html = "".join(pills)
+
+    jp_line = f'<div class="nc-muted nc-small">{jp_title}</div>' if jp_title else ""
+    return f"""
+<div class="nc-card">
+  <h4>{title}</h4>
+  {jp_line}
+  <div style="margin-top:8px;">{pills_html}</div>
+</div>
+"""
+
 if st.session_state.menu:
-    st.divider()
-    st.subheader("Proposed menu")
+    st.subheader("Your trip plan")
+    st.caption("Cards are your final plan. (We hide URLs here — PDF still uses the right recipes.)")
 
-    used_tools = sorted({clean(r.get("tool")) for r in st.session_state.menu if clean(r.get("tool"))})
-    if used_tools:
-        st.markdown("### Gear used")
-        for t in used_tools:
-            link = PRODUCT_LINKS.get(t)
-            if link:
-                st.markdown(f"• **{t}** → [Nimble Camp]({link})")
-            else:
-                st.markdown(f"• **{t}**")
-
-    menu_full = st.session_state.menu
-    menu_df = pd.DataFrame(menu_full)
-
-    edited_df = st.data_editor(
-        menu_df[["day", "meal", "title_en", "tool", "main_ing", "url"]],
-        use_container_width=True,
-        height=420,
-        num_rows="fixed",
-        hide_index=True,
-        key="menu_editor",
-    )
-
-    new_menu: List[Dict[str, Any]] = []
-    for i, row in edited_df.iterrows():
-        old = menu_full[i]
-        updated = dict(old)
-
-        updated["day"] = int(row.get("day", updated.get("day", 1)))
-        updated["meal"] = clean(row.get("meal", updated.get("meal", "Dinner")))
-
-        new_url = clean(row.get("url", updated.get("url", "")))
-        if new_url and new_url != updated.get("url"):
-            updated = hydrate_from_pool(new_url, updated, POOL_BY_URL)
-        else:
-            updated["title_en"] = clean(row.get("title_en", updated.get("title_en", "")))
-            updated["tool"] = clean(row.get("tool", updated.get("tool", "")))
-            updated["main_ing"] = clean(row.get("main_ing", updated.get("main_ing", "")))
-
-        updated["ingredients_en"] = updated.get("ingredients_en", []) or []
-        updated["method_en"] = updated.get("method_en", []) or []
-        new_menu.append(updated)
-
-    st.session_state.menu = new_menu
-
+    # sanity
     ok_ing = sum(1 for r in st.session_state.menu if (r.get("ingredients_en") or []))
     ok_meth = sum(1 for r in st.session_state.menu if (r.get("method_en") or []))
-    st.caption(f"Sanity check: ingredients present in {ok_ing}/{len(st.session_state.menu)} | method present in {ok_meth}/{len(st.session_state.menu)}")
+    st.caption(f"Sanity check: ingredients {ok_ing}/{len(st.session_state.menu)} | method {ok_meth}/{len(st.session_state.menu)}")
 
+    day_map = group_by_day(st.session_state.menu)
+
+    for d, items in day_map.items():
+        st.markdown(f"### Day {d}")
+        for r in items:
+            title_r = clean(r.get("title_en")) or clean(r.get("title_jp")) or "Untitled"
+            meal = clean(r.get("meal"))
+            tool = clean(r.get("tool")) or classify_tool(r)
+            main_ing = clean(r.get("main_ing")) or classify_main(r)
+            jp_title = clean(r.get("title_jp"))
+
+            c1, c2 = st.columns([3, 1])
+
+            with c1:
+                st.markdown(card_html(title_r, meal, tool, main_ing, jp_title=jp_title), unsafe_allow_html=True)
+
+            with c2:
+                # small preview image (optional)
+                img_url = clean(r.get("image_url"))
+                if img_url:
+                    img = fetch_image(img_url)
+                    if img:
+                        try:
+                            st.image(img, use_container_width=True)
+                        except Exception:
+                            pass
+
+        st.markdown('<div class="hr-soft"></div>', unsafe_allow_html=True)
+
+    # allow download menu json (keeps URLs internally, but user doesn't see them in the cards)
     menu_json = {
         "days": int(days),
         "meal_tags": meal_tags,
@@ -962,17 +994,16 @@ if st.session_state.menu:
         mime="application/json",
     )
 
-# ============================================================
+# =========================================================
 # PDF build
-# ============================================================
+# =========================================================
 if pdf_btn:
     if not st.session_state.menu:
-        st.error("No proposed menu yet. Click 'Generate / Refresh Proposed Menu' first.")
+        st.error("No menu yet. Click Generate / Refresh Menu first.")
     else:
         title = (pdf_title or "").strip() or f"{int(days)}-Day Camp Cookbook"
         subtitle = (pdf_subtitle or "").strip()
-
-        with st.spinner("Generating A5 PDF (includes images + shopping list)…"):
+        with st.spinner("Generating A5 PDF (images + shopping list)…"):
             pdf_bytes = build_a5_pdf(st.session_state.menu, title=title, subtitle=subtitle)
 
         st.success("PDF generated.")
