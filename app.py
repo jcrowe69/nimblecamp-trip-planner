@@ -93,13 +93,10 @@ h1 a, h2 a, h3 a, h4 a, h5 a, h6 a { display: none !important; }
 )
 
 # =========================================================
-# Brand header (no extra headings / no old title)
+# Brand header (headings removed)
 # =========================================================
-st.markdown("## Nimble Camp")
-st.markdown("# Trip Planner")
-st.caption("Build a personalised Japanese-style camp cookbook based on the tools you pack.")
 
-st.markdown('<div class="hr-soft"></div>', unsafe_allow_html=True)
+st.caption("Build a personalised Japanese-style camp cookbook based on the cooking gear you have.")
 
 # =========================================================
 # Defaults
@@ -1013,3 +1010,4 @@ if pdf_btn:
             file_name=f"Trip_Cookbook_A5_{int(days)}d_{int(meals_per_day)}mpd_{mode}_seed{int(seed)}.pdf",
             mime="application/pdf",
         )
+
