@@ -75,6 +75,14 @@ h1 a, h2 a, h3 a, h4 a, h5 a, h6 a { display: none !important; }
   font-size: 1.05rem;
   letter-spacing: 0.2px;
 }
+/* Card image */
+.nc-card-img {
+  width: 100%;
+  border-radius: 14px;
+  margin: 10px 0 10px 0;
+  display: block;
+}
+
 .nc-pill {
   display: inline-block;
   padding: 4px 10px;
@@ -95,8 +103,8 @@ h1 a, h2 a, h3 a, h4 a, h5 a, h6 a { display: none !important; }
 # =========================================================
 # Brand header (headings removed)
 # =========================================================
-
-st.caption("Build a personalised Japanese-style camp cookbook based on the cooking gear you have.")
+st.caption("Build a personalised Japanese-style camp cookbook based on the tools you pack.")
+st.markdown('<div class="hr-soft"></div>', unsafe_allow_html=True)
 
 # =========================================================
 # Defaults
@@ -915,7 +923,7 @@ def group_by_day(menu: List[Dict[str, Any]]) -> Dict[int, List[Dict[str, Any]]]:
         days_map[d] = sorted(days_map[d], key=lambda x: (MEAL_BUCKETS.index(x.get("meal")) if x.get("meal") in MEAL_BUCKETS else 99))
     return dict(sorted(days_map.items(), key=lambda kv: kv[0]))
 
-def card_html(title: str, meal: str, tool: str, main_ing: str, jp_title: str = "") -> str:
+def card_html(title: str, meal: str, tool: str, main_ing: str, jp_title: str = "", img_src: str = "") -> str:
     pills = []
     if meal: pills.append(f'<span class="nc-pill">{meal}</span>')
     if tool: pills.append(f'<span class="nc-pill">{tool}</span>')
@@ -923,10 +931,13 @@ def card_html(title: str, meal: str, tool: str, main_ing: str, jp_title: str = "
     pills_html = "".join(pills)
 
     jp_line = f'<div class="nc-muted nc-small">{jp_title}</div>' if jp_title else ""
+    img_html = f'<img class="nc-card-img" src="{img_src}" />' if img_src else ""
+
     return f"""
 <div class="nc-card">
   <h4>{title}</h4>
   {jp_line}
+  {img_html}
   <div style="margin-top:8px;">{pills_html}</div>
 </div>
 """
@@ -950,22 +961,12 @@ if st.session_state.menu:
             tool = clean(r.get("tool")) or classify_tool(r)
             main_ing = clean(r.get("main_ing")) or classify_main(r)
             jp_title = clean(r.get("title_jp"))
+            img_url = clean(r.get("image_url"))
 
-            c1, c2 = st.columns([3, 1])
-
-            with c1:
-                st.markdown(card_html(title_r, meal, tool, main_ing, jp_title=jp_title), unsafe_allow_html=True)
-
-            with c2:
-                # small preview image (optional)
-                img_url = clean(r.get("image_url"))
-                if img_url:
-                    img = fetch_image(img_url)
-                    if img:
-                        try:
-                            st.image(img, use_container_width=True)
-                        except Exception:
-                            pass
+            st.markdown(
+                card_html(title_r, meal, tool, main_ing, jp_title=jp_title, img_src=img_url),
+                unsafe_allow_html=True
+            )
 
         st.markdown('<div class="hr-soft"></div>', unsafe_allow_html=True)
 
@@ -1010,4 +1011,3 @@ if pdf_btn:
             file_name=f"Trip_Cookbook_A5_{int(days)}d_{int(meals_per_day)}mpd_{mode}_seed{int(seed)}.pdf",
             mime="application/pdf",
         )
-
