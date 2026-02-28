@@ -692,11 +692,12 @@ def propose_menu(
 # Sidebar controls
 # =========================================================
 with st.sidebar:
-    st.subheader("Master DB")
-    master_path = st.text_input("Master JSON path", MASTER_JSON_DEFAULT)
-    load_btn = st.button("Load / Reload DB")
-    clear_cache_btn = st.button("Clear cache")
-
+    with st.expander("Advanced (DB / Cache)", expanded=False):
+        st.subheader("Master DB")
+        master_path = st.text_input("Master JSON path", MASTER_JSON_DEFAULT)
+        load_btn = st.button("Load / Reload DB")
+        clear_cache_btn = st.button("Clear cache")
+        
     st.markdown("---")
     st.subheader("Trip settings")
     days = st.number_input("Days", min_value=1, max_value=30, value=DEFAULT_DAYS, step=1)
@@ -1011,3 +1012,4 @@ if pdf_btn:
             file_name=f"Trip_Cookbook_A5_{int(days)}d_{int(meals_per_day)}mpd_{mode}_seed{int(seed)}.pdf",
             mime="application/pdf",
         )
+
